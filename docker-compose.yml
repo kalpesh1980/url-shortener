@@ -1,0 +1,52 @@
+version: '3'
+
+services:
+
+  database:
+    image: postgres:11
+    restart: always
+    # ports:
+    #   - "5433:5432"
+    volumes:
+       - pgdata:/var/lib/postgresql/data
+    environment:
+      POSTGRES_PASSWORD: root
+      POSTGRES_USER: root
+      POSTGRES_DB: dellus
+
+  dellus:
+    image: kalpesh31/dellus
+    restart: always
+    build: .
+    # ports:
+    #  - "9119:9119"
+    links:
+      - database
+    environment:
+      - DB_PASSWORD=root
+      - DB_USER=root
+      - DB_NAME=dellus
+      - DB_HOST=database
+      - DB_PORT=5432
+    volumes:
+     - .:/dellus
+    command: gunicorn --log-file /var/log/dellus/error_logs.log --access-logfile /var/log/dellus/acclogs.log --log-level DEBUG --bind 0.0.0.0:9119 --workers 2 dellus.rest.wsgi:app
+    depends_on:
+      - database
+
+  dellusui:
+    image: kalpesh31/dellus
+    restart: always
+    build: .
+    ports:
+     - "8000:8000"
+    links:
+      - dellus
+    environment:
+      - DELLUS_API_ADDRESS=dellus
+    command: sh -c "cd dellusui && gunicorn --log-file /var/log/dellus/uierror_logs.log --access-logfile /var/log/dellus/uiacclogs.log --bind 0.0.0.0:8000 --workers 2 dellusui.wsgi && cd .."
+    depends_on:
+      - dellus
+
+volumes:
+  pgdata:
